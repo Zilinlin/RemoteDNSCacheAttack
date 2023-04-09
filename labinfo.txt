@@ -1,0 +1,10 @@
+Apollo (victim DNS Server):
+VMIP: 192.168.15.9, PORT:11128  guestssh4
+
+dns_user:
+VMIP: 192.168.15.10, PORT:11129  guestssh5
+
+dns_attacker:
+VMIP: 192.168.15.11,  PORT: 11130,  guestssh6
+
+gcc udp.c -o udp -lpcap
